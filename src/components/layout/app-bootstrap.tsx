@@ -16,6 +16,7 @@ import {
   storage,
 } from "@/lib/storage/storage";
 import { CloudSync } from "@/components/auth/cloud-sync";
+import { AppFooter } from "@/components/layout/app-footer";
 
 function AppRuntimeExtras() {
   const pathname = usePathname();
@@ -82,6 +83,7 @@ function Runtime({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
       {children}
+      <AppFooter />
       <AppRuntimeExtras />
       <CloudSync />
     </AuthGate>

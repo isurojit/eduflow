@@ -7,6 +7,14 @@ import { useEduFlowStore } from "@/store/use-eduflow-store";
 
 let lastServerUpdatedAt: string | null = null;
 
+export class CloudConflictError extends Error {
+  constructor() {
+    super("Cloud conflict detected. A newer version exists on another device.");
+
+    this.name = "CloudConflictError";
+  }
+}
+
 export function resetCloudRevision() {
   lastServerUpdatedAt = null;
 }
@@ -123,9 +131,7 @@ export async function initialCloudSync(uid: string) {
     const uploadPayload = await upload.json().catch(() => null);
 
     if (upload.status === 409) {
-      throw new Error(
-        "Cloud conflict detected. Your local changes were not overwritten.",
-      );
+      throw new CloudConflictError();
     }
 
     if (!upload.ok) {
@@ -156,9 +162,7 @@ export async function pushCloudState() {
   const payload = await response.json().catch(() => null);
 
   if (response.status === 409) {
-    throw new Error(
-      "Cloud conflict detected. Your local changes were kept on this device.",
-    );
+    throw new CloudConflictError();
   }
 
   if (!response.ok) {
@@ -166,6 +170,40 @@ export async function pushCloudState() {
   }
 
   lastServerUpdatedAt = payload?.updatedAt ?? null;
+
+  return true;
+}
+export async function downloadLatestCloudState() {
+  const response = await cloudFetch("/api/cloud/state", {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+
+    throw new Error(
+      payload?.error || "Latest cloud state could not be downloaded.",
+    );
+  }
+
+  const payload = (await response.json()) as {
+    state?: EduFlowState;
+    updatedAt?: string;
+  };
+
+  if (!payload.state) {
+    throw new Error("Cloud state response did not contain state.");
+  }
+
+  lastServerUpdatedAt = payload.updatedAt ?? null;
+
+  storage.save(payload.state);
+
+  useEduFlowStore.setState({
+    ...payload.state,
+    hydrated: true,
+  });
 
   return true;
 }
