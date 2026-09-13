@@ -8,7 +8,7 @@ import { NotificationCenter } from "@/components/notifications/notification-cent
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { AuthGate } from "@/components/auth/auth-gate";
-import { CloudSync } from "@/components/auth/cloud-sync";
+// import { CloudSync } from "@/components/auth/cloud-sync";
 
 function AppRuntimeExtras() {
   const pathname = usePathname();
@@ -20,7 +20,7 @@ function AppRuntimeExtras() {
     pathname.startsWith("/creators");
 
   if (hideAppExtras) {
-    return <CloudSync />;
+    return null;
   }
 
   return (
@@ -28,7 +28,6 @@ function AppRuntimeExtras() {
       <GlobalSearchDialog />
       <NotificationCenter />
       <MobileNav />
-      <CloudSync />
     </>
   );
 }
