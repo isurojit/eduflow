@@ -17,7 +17,8 @@ function AppRuntimeExtras() {
     pathname === "/" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/creators");
+    pathname.startsWith("/creators") ||
+    pathname.startsWith("/assistant");
 
   if (hideAppExtras) {
     return null;

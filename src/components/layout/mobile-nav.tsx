@@ -50,28 +50,43 @@ const more = [
 ];
 
 function isActive(pathname: string, href: string) {
-  return pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
+  return (
+    pathname === href ||
+    (href !== "/dashboard" && pathname.startsWith(`${href}/`))
+  );
 }
 
 export function MobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const hidden = pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/creators") || pathname.startsWith("/onboarding") || pathname.startsWith("/focus");
+  const hidden =
+    pathname === "/" ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/creators") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/focus");
   const moreActive = more.some((item) => isActive(pathname, item.href));
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
   useEffect(() => {
     if (!open) return;
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = original; };
+    return () => {
+      document.body.style.overflow = original;
+    };
   }, [open]);
 
   if (hidden) return null;
 
   return (
     <>
-      <div className="h-[calc(4.75rem+env(safe-area-inset-bottom))] md:hidden" aria-hidden="true" />
+      <div
+        className="h-[calc(4.75rem+env(safe-area-inset-bottom))] md:hidden"
+        aria-hidden="true"
+      />
       <nav
         className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/[0.09] bg-[#090708]/95 px-2 pb-[max(.45rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl md:hidden"
         aria-label="Mobile primary navigation"
@@ -80,13 +95,27 @@ export function MobileNav() {
           {primary.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);
             return (
-              <Link key={href} href={href} className={cn("focus-ring flex min-h-[54px] flex-col items-center justify-center gap-1 text-[10px] font-medium", active ? "bg-[#180C10] text-white" : "text-[#807478]")}> 
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "focus-ring flex min-h-[54px] flex-col items-center justify-center gap-1 text-[10px] font-medium",
+                  active ? "bg-[#180C10] text-white" : "text-[#807478]",
+                )}
+              >
                 <Icon className="size-4" aria-hidden="true" />
                 <span>{label}</span>
               </Link>
             );
           })}
-          <button onClick={() => setOpen(true)} className={cn("focus-ring flex min-h-[54px] flex-col items-center justify-center gap-1 text-[10px] font-medium", moreActive ? "bg-[#180C10] text-white" : "text-[#807478]")} aria-label="Open more navigation">
+          <button
+            onClick={() => setOpen(true)}
+            className={cn(
+              "focus-ring flex min-h-[54px] flex-col items-center justify-center gap-1 text-[10px] font-medium",
+              moreActive ? "bg-[#180C10] text-white" : "text-[#807478]",
+            )}
+            aria-label="Open more navigation"
+          >
             <Menu className="size-4" />
             <span>More</span>
           </button>
@@ -94,19 +123,44 @@ export function MobileNav() {
       </nav>
 
       {open ? (
-        <div className="fixed inset-0 z-[100] flex items-end bg-black/65 backdrop-blur-sm md:hidden" role="dialog" aria-modal="true" aria-label="More navigation" onMouseDown={(event) => { if (event.currentTarget === event.target) setOpen(false); }}>
+        <div
+          className="fixed inset-0 z-[100] flex items-end bg-black/65 backdrop-blur-sm md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="More navigation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setOpen(false);
+          }}
+        >
           <section className="max-h-[88dvh] w-full overflow-y-auto rounded-t-[22px] border-t border-white/[0.1] bg-[#0d090a] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/[0.12]" />
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div>
-                <p className="text-[10px] uppercase tracking-[.16em] text-[#807478]">EduFlow</p>
+                <p className="text-[10px] uppercase tracking-[.16em] text-[#807478]">
+                  EduFlow
+                </p>
                 <h2 className="mt-1 text-lg font-semibold">More tools</h2>
               </div>
-              <button onClick={() => setOpen(false)} className="focus-ring grid min-h-11 min-w-11 place-items-center text-[#807478]" aria-label="Close navigation"><X className="size-4" /></button>
+              <button
+                onClick={() => setOpen(false)}
+                className="focus-ring grid min-h-11 min-w-11 place-items-center text-[#807478]"
+                aria-label="Close navigation"
+              >
+                <X className="size-4" />
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-2 py-4">
               {more.map(({ href, label, icon: Icon }) => (
-                <Link key={href} href={href} className={cn("focus-ring flex min-h-14 items-center gap-3 border px-3 text-sm", isActive(pathname, href) ? "border-[#78152A] bg-[#180C10] text-white" : "border-white/[0.08] text-[#B8AAAE]")}> 
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "focus-ring flex min-h-14 items-center gap-3 border px-3 text-sm",
+                    isActive(pathname, href)
+                      ? "border-[#78152A] bg-[#180C10] text-white"
+                      : "border-white/[0.08] text-[#B8AAAE]",
+                  )}
+                >
                   <Icon className="size-4 shrink-0" aria-hidden="true" />
                   <span className="truncate">{label}</span>
                 </Link>
