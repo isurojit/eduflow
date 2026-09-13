@@ -38,7 +38,9 @@ function Runtime({ children }: { children: React.ReactNode }) {
   const refreshNotifications = useEduFlowStore(
     (state) => state.refreshNotifications,
   );
-  useEffect(() => hydrate(), [hydrate]);
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
   useEffect(() => {
     const timer = window.setInterval(refreshNotifications, 60_000);
     return () => window.clearInterval(timer);

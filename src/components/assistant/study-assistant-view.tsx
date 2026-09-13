@@ -112,11 +112,12 @@ export function StudyAssistantView() {
     if (initialSubjectId) setSubjectId(initialSubjectId);
     if (initialTopicId) setTopicId(initialTopicId);
   }, [initialSubjectId, initialTopicId]);
-  useEffect(
-    () =>
-      endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-    [messages],
-  );
+  useEffect(() => {
+    endRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [messages]);
   const subject = store.subjects.find((item) => item.id === subjectId);
   const topics = subject?.topics ?? [];
   const topic = topics.find((item) => item.id === topicId);
