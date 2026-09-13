@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Cloud, CloudOff } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
-import { initialCloudSync, pushCloudState } from "@/lib/cloud/state-sync";
+import {
+  initialCloudSync,
+  pushCloudState,
+  resetCloudRevision,
+} from "@/lib/cloud/state-sync";
 import { useEduFlowStore } from "@/store/use-eduflow-store";
 
 type SyncStatus = "idle" | "syncing" | "synced" | "offline";
@@ -115,6 +119,8 @@ export function CloudSync() {
     const uid = user?.uid ?? null;
 
     if (initializedFor.current && initializedFor.current !== uid) {
+      resetCloudRevision();
+
       initializedFor.current = null;
       skipNextPush.current = false;
       setStatus("idle");

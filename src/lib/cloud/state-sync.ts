@@ -5,6 +5,12 @@ import { cloudFetch } from "@/lib/cloud/api-client";
 import { storage } from "@/lib/storage/storage";
 import { useEduFlowStore } from "@/store/use-eduflow-store";
 
+let lastServerUpdatedAt: string | null = null;
+
+export function resetCloudRevision() {
+  lastServerUpdatedAt = null;
+}
+
 export function snapshotEduFlowState(): EduFlowState {
   const store = useEduFlowStore.getState();
 
@@ -54,16 +60,19 @@ export async function initialCloudSync(uid: string) {
       method: "PUT",
       body: JSON.stringify({
         state: local,
+        expectedUpdatedAt: null,
       }),
     });
 
-    if (!upload.ok) {
-      const payload = await upload.json().catch(() => null);
+    const uploadPayload = await upload.json().catch(() => null);
 
+    if (!upload.ok) {
       throw new Error(
-        payload?.error || "Initial cloud state could not be saved.",
+        uploadPayload?.error || "Initial cloud state could not be saved.",
       );
     }
+
+    lastServerUpdatedAt = uploadPayload?.updatedAt ?? null;
 
     return "uploaded" as const;
   }
@@ -76,6 +85,7 @@ export async function initialCloudSync(uid: string) {
 
   const payload = (await response.json()) as {
     state?: EduFlowState;
+    updatedAt?: string;
   };
 
   const remote = payload.state;
@@ -84,7 +94,10 @@ export async function initialCloudSync(uid: string) {
     throw new Error("Cloud state response did not contain state.");
   }
 
+  lastServerUpdatedAt = payload.updatedAt ?? null;
+
   const remoteUpdated = timestamp(remote.updatedAt);
+
   const localUpdated = timestamp(local.updatedAt);
 
   if (remoteUpdated > localUpdated) {
@@ -103,16 +116,25 @@ export async function initialCloudSync(uid: string) {
       method: "PUT",
       body: JSON.stringify({
         state: local,
+        expectedUpdatedAt: lastServerUpdatedAt,
       }),
     });
 
-    if (!upload.ok) {
-      const uploadPayload = await upload.json().catch(() => null);
+    const uploadPayload = await upload.json().catch(() => null);
 
+    if (upload.status === 409) {
+      throw new Error(
+        "Cloud conflict detected. Your local changes were not overwritten.",
+      );
+    }
+
+    if (!upload.ok) {
       throw new Error(
         uploadPayload?.error || "Cloud state could not be updated.",
       );
     }
+
+    lastServerUpdatedAt = uploadPayload?.updatedAt ?? null;
 
     return "uploaded" as const;
   }
@@ -127,14 +149,23 @@ export async function pushCloudState() {
     method: "PUT",
     body: JSON.stringify({
       state,
+      expectedUpdatedAt: lastServerUpdatedAt,
     }),
   });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
+  const payload = await response.json().catch(() => null);
 
+  if (response.status === 409) {
+    throw new Error(
+      "Cloud conflict detected. Your local changes were kept on this device.",
+    );
+  }
+
+  if (!response.ok) {
     throw new Error(payload?.error || "Cloud state could not be saved.");
   }
+
+  lastServerUpdatedAt = payload?.updatedAt ?? null;
 
   return true;
 }
