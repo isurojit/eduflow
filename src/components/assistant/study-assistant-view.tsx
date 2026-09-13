@@ -3,11 +3,26 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Bot, BookOpenCheck, ChevronDown, ExternalLink, GraduationCap, Play, Send, ShieldCheck, Sparkles, WandSparkles, X } from "lucide-react";
+import {
+  Bot,
+  BookOpenCheck,
+  ChevronDown,
+  ExternalLink,
+  GraduationCap,
+  Play,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { LocalStudyProvider } from "@/lib/ai/local-study-provider";
 import type { EduFlowState } from "@/types/domain";
-import type { StudyAssistantMessage, StudyAssistantReply } from "@/lib/ai/types";
+import type {
+  StudyAssistantMessage,
+  StudyAssistantReply,
+} from "@/lib/ai/types";
 import type { AgentAction, AgentResponse } from "@/types/cloud";
 import { useEduFlowStore } from "@/store/use-eduflow-store";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -16,60 +31,547 @@ import { createId } from "@/lib/utils/id";
 
 const localProvider = new LocalStudyProvider();
 
-function snapshot(store: ReturnType<typeof useEduFlowStore.getState>): EduFlowState {
-  return { version: store.version, profile: store.profile, subjects: store.subjects, goals: store.goals, dailyActivity: store.dailyActivity, testAttempts: store.testAttempts, studySessions: store.studySessions, exams: store.exams, planner: store.planner, activeFocus: store.activeFocus, flashcardProgress: store.flashcardProgress, achievements: store.achievements, notes: store.notes, notifications: store.notifications, notificationPreferences: store.notificationPreferences, createdAt: store.createdAt, updatedAt: store.updatedAt };
+function snapshot(
+  store: ReturnType<typeof useEduFlowStore.getState>,
+): EduFlowState {
+  return {
+    version: store.version,
+    profile: store.profile,
+    subjects: store.subjects,
+    goals: store.goals,
+    dailyActivity: store.dailyActivity,
+    testAttempts: store.testAttempts,
+    studySessions: store.studySessions,
+    exams: store.exams,
+    planner: store.planner,
+    activeFocus: store.activeFocus,
+    flashcardProgress: store.flashcardProgress,
+    achievements: store.achievements,
+    notes: store.notes,
+    notifications: store.notifications,
+    notificationPreferences: store.notificationPreferences,
+    createdAt: store.createdAt,
+    updatedAt: store.updatedAt,
+  };
 }
 
-const SUGGESTIONS = ["Plan my study time for today", "Create a 120 minute daily study goal", "What should I study next?", "Explain my recent test mistakes", "Bookmark this topic", "Start a 25 minute focus session", "Research this topic on the web"];
+const SUGGESTIONS = [
+  "Plan my study time for today",
+  "Create a 120 minute daily study goal",
+  "What should I study next?",
+  "Explain my recent test mistakes",
+  "Bookmark this topic",
+  "Start a 25 minute focus session",
+  "Research this topic on the web",
+];
 
 function actionLabel(action: AgentAction) {
   switch (action.type) {
-    case "navigate": return action.label || "Open page"; case "set_study_minutes": return `Set today to ${action.minutes} min`; case "add_goal": return `Add ${action.period} goal`; case "add_exam": return `Add exam · ${action.name}`; case "create_note": return `Create note · ${action.title}`; case "complete_topic": return "Mark topic complete"; case "bookmark_topic": return "Bookmark topic"; case "start_focus": return `Start ${action.minutes ?? 25} min focus`; case "research": return `Research · ${action.query}`;
+    case "navigate":
+      return action.label || "Open page";
+    case "set_study_minutes":
+      return `Set today to ${action.minutes} min`;
+    case "add_goal":
+      return `Add ${action.period} goal`;
+    case "add_exam":
+      return `Add exam · ${action.name}`;
+    case "create_note":
+      return `Create note · ${action.title}`;
+    case "complete_topic":
+      return "Mark topic complete";
+    case "bookmark_topic":
+      return "Bookmark topic";
+    case "start_focus":
+      return `Start ${action.minutes ?? 25} min focus`;
+    case "research":
+      return `Research · ${action.query}`;
   }
 }
 
 export function StudyAssistantView() {
-  const params = useSearchParams(); const router = useRouter(); const { user, configured } = useAuth(); const store = useEduFlowStore();
-  const initialSubjectId = params.get("subjectId") ?? ""; const initialTopicId = params.get("topicId") ?? ""; const attemptId = params.get("attemptId") ?? undefined;
-  const [subjectId, setSubjectId] = useState(initialSubjectId); const [topicId, setTopicId] = useState(initialTopicId); const [messages, setMessages] = useState<StudyAssistantMessage[]>([]); const [replyMeta, setReplyMeta] = useState<Record<string, StudyAssistantReply["sourceLabel"] | "Gemini AI">>({}); const [actions, setActions] = useState<Record<string, AgentAction[]>>({}); const [input, setInput] = useState(""); const [busy, setBusy] = useState(false); const [status, setStatus] = useState(""); const endRef = useRef<HTMLDivElement>(null);
+  const params = useSearchParams();
+  const router = useRouter();
+  const { user, configured } = useAuth();
+  const store = useEduFlowStore();
+  const initialSubjectId = params.get("subjectId") ?? "";
+  const initialTopicId = params.get("topicId") ?? "";
+  const attemptId = params.get("attemptId") ?? undefined;
+  const [subjectId, setSubjectId] = useState(initialSubjectId);
+  const [topicId, setTopicId] = useState(initialTopicId);
+  const [messages, setMessages] = useState<StudyAssistantMessage[]>([]);
+  const [replyMeta, setReplyMeta] = useState<
+    Record<string, StudyAssistantReply["sourceLabel"] | "Gemini AI">
+  >({});
+  const [actions, setActions] = useState<Record<string, AgentAction[]>>({});
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { if (initialSubjectId) setSubjectId(initialSubjectId); if (initialTopicId) setTopicId(initialTopicId); }, [initialSubjectId, initialTopicId]);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), [messages]);
-  const subject = store.subjects.find((item) => item.id === subjectId); const topics = subject?.topics ?? []; const topic = topics.find((item) => item.id === topicId); const contextLabel = topic ? `${subject?.name} · ${topic.name}` : subject ? subject.name : "General study context";
-  const intro = useMemo(() => user && configured ? "Ask a study question or tell EduFlow to organize something for you. The cloud copilot can propose app actions and uses your synced learning context; you stay in control before actions run." : "Local Study Assistant is active. Configure Firebase + Gemini in .env.local to unlock cloud AI actions and cross-device context.", [configured, user]);
+  useEffect(() => {
+    if (initialSubjectId) setSubjectId(initialSubjectId);
+    if (initialTopicId) setTopicId(initialTopicId);
+  }, [initialSubjectId, initialTopicId]);
+  useEffect(
+    () =>
+      endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+    [messages],
+  );
+  const subject = store.subjects.find((item) => item.id === subjectId);
+  const topics = subject?.topics ?? [];
+  const topic = topics.find((item) => item.id === topicId);
+  const contextLabel = topic
+    ? `${subject?.name} · ${topic.name}`
+    : subject
+      ? subject.name
+      : "General study context";
+  const intro = useMemo(
+    () =>
+      user && configured
+        ? "Ask a study question or tell EduFlow to organize something for you. The cloud copilot can propose app actions and uses your synced learning context; you stay in control before actions run."
+        : "Local Study Assistant is active. Configure Firebase + Gemini in .env.local to unlock cloud AI actions and cross-device context.",
+    [configured, user],
+  );
 
   const runAction = async (action: AgentAction) => {
     setStatus("");
     let result: { ok: boolean; message?: string } = { ok: true };
-    if (action.type === "navigate") { router.push(action.href); return; }
-    if (action.type === "research") { router.push(`/research?q=${encodeURIComponent(action.query)}`); return; }
-    if (action.type === "set_study_minutes") result = store.setAvailableStudyMinutes(action.minutes);
-    if (action.type === "add_goal") result = store.addGoal({ type: action.goalType, period: action.period, target: action.target });
-    if (action.type === "add_exam") result = store.addExam({ name: action.name, date: action.date, subjectIds: action.subjectIds });
-    if (action.type === "create_note") result = store.createNote({ title: action.title, body: action.body, subjectId: action.subjectId, topicId: action.topicId });
-    if (action.type === "complete_topic") { const found=store.subjects.find(s=>s.id===action.subjectId)?.topics.find(t=>t.id===action.topicId); result = found?.completed ? {ok:true,message:"Topic is already complete."} : store.toggleTopicCompletion(action.subjectId, action.topicId); }
-    if (action.type === "bookmark_topic") { const found=store.subjects.find(s=>s.id===action.subjectId)?.topics.find(t=>t.id===action.topicId); result = found?.bookmarked ? {ok:true,message:"Topic is already bookmarked."} : store.toggleTopicBookmark(action.subjectId, action.topicId); }
-    if (action.type === "start_focus") { result = store.prepareFocusSession({ subjectId: action.subjectId, topicId: action.topicId, minutes: action.minutes ?? 25 }); if (result.ok) { router.push("/focus"); return; } }
-    setStatus(result.ok ? result.message || "Action completed." : result.message || "That action could not be completed.");
+    if (action.type === "navigate") {
+      router.push(action.href);
+      return;
+    }
+    if (action.type === "research") {
+      router.push(`/research?q=${encodeURIComponent(action.query)}`);
+      return;
+    }
+    if (action.type === "set_study_minutes")
+      result = store.setAvailableStudyMinutes(action.minutes);
+    if (action.type === "add_goal")
+      result = store.addGoal({
+        type: action.goalType,
+        period: action.period,
+        target: action.target,
+      });
+    if (action.type === "add_exam")
+      result = store.addExam({
+        name: action.name,
+        date: action.date,
+        subjectIds: action.subjectIds,
+      });
+    if (action.type === "create_note")
+      result = store.createNote({
+        title: action.title,
+        body: action.body,
+        subjectId: action.subjectId,
+        topicId: action.topicId,
+      });
+    if (action.type === "complete_topic") {
+      const found = store.subjects
+        .find((s) => s.id === action.subjectId)
+        ?.topics.find((t) => t.id === action.topicId);
+      result = found?.completed
+        ? { ok: true, message: "Topic is already complete." }
+        : store.toggleTopicCompletion(action.subjectId, action.topicId);
+    }
+    if (action.type === "bookmark_topic") {
+      const found = store.subjects
+        .find((s) => s.id === action.subjectId)
+        ?.topics.find((t) => t.id === action.topicId);
+      result = found?.bookmarked
+        ? { ok: true, message: "Topic is already bookmarked." }
+        : store.toggleTopicBookmark(action.subjectId, action.topicId);
+    }
+    if (action.type === "start_focus") {
+      result = store.prepareFocusSession({
+        subjectId: action.subjectId,
+        topicId: action.topicId,
+        minutes: action.minutes ?? 25,
+      });
+      if (result.ok) {
+        router.push("/focus");
+        return;
+      }
+    }
+    setStatus(
+      result.ok
+        ? result.message || "Action completed."
+        : result.message || "That action could not be completed.",
+    );
   };
 
   const ask = async (text: string) => {
-    const clean = text.trim(); if (!clean || busy) return;
-    const userMessage: StudyAssistantMessage = { id: createId(), role: "user", content: clean, createdAt: new Date().toISOString() }; const history = [...messages, userMessage]; setMessages(history); setInput(""); setBusy(true); setStatus("");
+    const clean = text.trim();
+    if (!clean || busy) return;
+    const userMessage: StudyAssistantMessage = {
+      id: createId(),
+      role: "user",
+      content: clean,
+      createdAt: new Date().toISOString(),
+    };
+    const history = [...messages, userMessage];
+    setMessages(history);
+    setInput("");
+    setBusy(true);
+    setStatus("");
     try {
       let cloud: AgentResponse | null = null;
       if (user && configured) {
-        try { const response = await cloudFetch("/api/ai/agent", { method: "POST", body: JSON.stringify({ message: clean, context: `${contextLabel}${attemptId ? ` · test attempt ${attemptId}` : ""}` }) }); if (response.ok) cloud = await response.json(); } catch { cloud = null; }
+        try {
+          const response = await cloudFetch("/api/ai/agent", {
+            method: "POST",
+            body: JSON.stringify({
+              message: clean,
+              context: `${contextLabel}${attemptId ? ` · test attempt ${attemptId}` : ""}`,
+            }),
+          });
+
+          if (response.ok) {
+            const payload = await response.json();
+
+            if (
+              payload &&
+              typeof payload.message === "string" &&
+              Array.isArray(payload.actions)
+            ) {
+              cloud = payload as AgentResponse;
+            }
+          } else {
+            console.error(
+              "EduFlow AI API failed:",
+              response.status,
+              await response.text().catch(() => ""),
+            );
+          }
+        } catch (error) {
+          console.error("EduFlow AI request error:", error);
+          cloud = null;
+        }
       }
       if (cloud) {
-        const assistantMessage: StudyAssistantMessage = { id: createId(), role: "assistant", content: cloud.message, createdAt: new Date().toISOString() }; setMessages((current) => [...current, assistantMessage]); setReplyMeta((current) => ({ ...current, [assistantMessage.id]: "Gemini AI" })); if (cloud.actions.length) setActions((current) => ({ ...current, [assistantMessage.id]: cloud!.actions }));
+        const assistantMessage: StudyAssistantMessage = {
+          id: createId(),
+          role: "assistant",
+          content: cloud.message,
+          createdAt: new Date().toISOString(),
+        };
+
+        setMessages((current) => [...current, assistantMessage]);
+
+        setReplyMeta((current) => ({
+          ...current,
+          [assistantMessage.id]: "Gemini AI",
+        }));
+
+        if (cloud.actions.length > 0) {
+          setActions((current) => ({
+            ...current,
+            [assistantMessage.id]: cloud.actions,
+          }));
+        }
       } else {
-        const result = await localProvider.chat({ message: clean, history, context: { state: snapshot(useEduFlowStore.getState()), subjectId: subjectId || undefined, topicId: topicId || undefined, attemptId } }); const assistantMessage: StudyAssistantMessage = { id: createId(), role: "assistant", content: result.text, createdAt: new Date().toISOString() }; setMessages((current) => [...current, assistantMessage]); setReplyMeta((current) => ({ ...current, [assistantMessage.id]: result.sourceLabel }));
+        const result = await localProvider.chat({
+          message: clean,
+          history,
+          context: {
+            state: snapshot(useEduFlowStore.getState()),
+            subjectId: subjectId || undefined,
+            topicId: topicId || undefined,
+            attemptId,
+          },
+        });
+        const assistantMessage: StudyAssistantMessage = {
+          id: createId(),
+          role: "assistant",
+          content: result.text,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((current) => [...current, assistantMessage]);
+        setReplyMeta((current) => ({
+          ...current,
+          [assistantMessage.id]: result.sourceLabel,
+        }));
       }
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const submit = (event: FormEvent) => { event.preventDefault(); void ask(input); };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    void ask(input);
+  };
 
-  return <main className="min-h-screen"><AppHeader name={store.profile?.name} context="AI Copilot"/><div className="mx-auto max-w-[1320px] px-4 py-8 sm:px-7 lg:px-10"><section className="border-b border-white/[0.08] pb-7"><div className="flex flex-wrap items-end justify-between gap-5"><div><div className="flex items-center gap-2 text-[10px] uppercase tracking-[.18em] text-[#807478]"><Bot className="size-3.5 text-[#A81736]"/>EduFlow AI Copilot</div><h1 className="mt-3 font-[family-name:var(--font-display)] text-4xl font-semibold tracking-[-.05em] sm:text-5xl">Ask. Organize. Act.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[#9f9195]">Use natural language to understand material or operate EduFlow. State-changing actions are shown for your approval before they run.</p></div><div className="border border-white/[0.08] bg-[#0d090a] px-4 py-3 text-xs text-[#9f9195]"><div className="flex items-center gap-2">{user&&configured?<WandSparkles className="size-4 text-[#A81736]"/>:<ShieldCheck className="size-4 text-[#A81736]"/>}<span>{user&&configured?"Cloud AI + local fallback":"Local fallback mode"}</span></div><p className="mt-1 text-[10px] text-[#62585b]">Provider: {user&&configured?"Gemini when configured":"Local Study Assistant"}</p></div></div></section><section className="grid gap-8 py-8 lg:grid-cols-[.34fr_1fr]"><aside className="space-y-6"><div className="border-y border-white/[0.08] py-5"><p className="text-[9px] uppercase tracking-[.16em] text-[#807478]">Study context</p><label className="mt-4 block text-xs text-[#B8AAAE]">Subject</label><div className="relative mt-2"><select value={subjectId} onChange={(e)=>{setSubjectId(e.target.value);setTopicId("")}} className="focus-ring min-h-11 w-full appearance-none border border-white/[0.1] bg-[#11090B] px-3 pr-9 text-sm"><option value="">General</option>{store.subjects.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-[#62585b]"/></div><label className="mt-4 block text-xs text-[#B8AAAE]">Topic</label><div className="relative mt-2"><select value={topicId} disabled={!subjectId} onChange={e=>setTopicId(e.target.value)} className="focus-ring min-h-11 w-full appearance-none border border-white/[0.1] bg-[#11090B] px-3 pr-9 text-sm disabled:opacity-40"><option value="">All topics</option>{topics.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-[#62585b]"/></div><p className="mt-3 text-[10px] leading-4 text-[#62585b]">Current: {contextLabel}</p></div><div><p className="text-[9px] uppercase tracking-[.16em] text-[#807478]">Try asking</p><div className="mt-3 space-y-1">{SUGGESTIONS.map(suggestion=><button key={suggestion} onClick={()=>void ask(suggestion)} className="focus-ring block min-h-10 w-full border-b border-white/[0.06] px-1 text-left text-xs text-[#9f9195] transition hover:text-white">{suggestion}</button>)}</div></div>{topic&&subject?<div className="border-l border-[#78152A] pl-4"><p className="text-xs font-medium text-[#D8CDD0]">Context shortcuts</p><div className="mt-3 flex flex-col gap-2 text-xs"><Link href={`/revision/${subject.id}/${topic.id}`} className="focus-ring inline-flex min-h-9 items-center gap-2 text-[#9f9195] hover:text-white"><BookOpenCheck className="size-3.5"/>Open revision</Link><Link href={`/subjects/${subject.id}/topics/${topic.id}`} className="focus-ring inline-flex min-h-9 items-center text-[#9f9195] hover:text-white">Back to topic</Link></div></div>:null}</aside><div className="min-w-0 border border-white/[0.08] bg-[#0b0809]"><div className="border-b border-white/[0.08] px-5 py-4 sm:px-6"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-medium">{contextLabel}</p><p className="mt-1 text-[10px] text-[#62585b]">AI can propose actions; you approve them before execution.</p></div>{messages.length?<button onClick={()=>{setMessages([]);setReplyMeta({});setActions({})}} className="focus-ring inline-flex min-h-9 items-center gap-1.5 px-2 text-[10px] text-[#807478] hover:text-white"><X className="size-3.5"/>Clear</button>:null}</div></div><div className="h-[48dvh] min-h-[340px] overflow-y-auto px-4 py-5 sm:h-[56vh] sm:min-h-[460px] sm:px-7 sm:py-6">{!messages.length?<div className="max-w-xl"><Sparkles className="size-5 text-[#78152A]"/><h2 className="mt-4 text-xl font-semibold">One copilot for the entire study workspace.</h2><p className="mt-3 text-sm leading-6 text-[#807478]">{intro}</p><div className="mt-6 grid gap-2 text-xs text-[#62585b] sm:grid-cols-2"><span className="border-t border-white/[0.08] pt-3">Create goals & notes</span><span className="border-t border-white/[0.08] pt-3">Plan focus & exams</span><span className="border-t border-white/[0.08] pt-3">Operate topics</span><span className="border-t border-white/[0.08] pt-3">Launch verified research</span></div></div>:<div className="space-y-7">{messages.map(message=><article key={message.id} className={message.role==="user"?"ml-auto max-w-[94%] sm:max-w-[82%]":"max-w-[96%] sm:max-w-[88%]"}><p className="text-[9px] uppercase tracking-[.15em] text-[#62585b]">{message.role==="user"?"You":"EduFlow AI"}</p><div className={`mt-2 whitespace-pre-wrap text-sm leading-6 ${message.role==="user"?"border-l-2 border-[#A81736] pl-4 text-[#E8DEE0]":"text-[#B8AAAE]"}`}>{message.content}</div>{message.role==="assistant"&&replyMeta[message.id]?<p className="mt-2 text-[9px] uppercase tracking-[.12em] text-[#62585b]">Source · {replyMeta[message.id]}</p>:null}{actions[message.id]?.length?<div className="mt-4 grid gap-2 sm:grid-cols-2">{actions[message.id].map((action,index)=><button key={`${action.type}-${index}`} onClick={()=>void runAction(action)} className="focus-ring flex min-h-11 items-center justify-between gap-3 border border-[#78152A]/55 bg-[#180C10] px-3 text-left text-xs text-[#D8CDD0] hover:border-[#A81736]"><span>{actionLabel(action)}</span>{action.type==="research"||action.type==="navigate"?<ExternalLink className="size-3.5 shrink-0"/>:<Play className="size-3.5 shrink-0"/>}</button>)}</div>:null}</article>)}{busy?<div className="text-xs text-[#807478]">EduFlow AI is working with your study context…</div>:null}</div>}<div ref={endRef}/></div>{status?<div className="border-t border-white/[0.08] bg-[#11090B] px-5 py-3 text-xs text-[#B8AAAE]">{status}</div>:null}<form onSubmit={submit} className="border-t border-white/[0.08] p-4 sm:p-5"><div className="flex gap-2"><textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(input.trim())void ask(input)}}} placeholder="Ask a question or tell EduFlow what to do…" rows={2} className="focus-ring min-h-14 flex-1 resize-none border border-white/[0.1] bg-[#11090B] px-4 py-3 text-sm placeholder:text-[#62585b]"/><button type="submit" disabled={!input.trim()||busy} className="focus-ring grid min-h-14 min-w-14 place-items-center bg-[#A81736] text-white disabled:opacity-40" aria-label="Send"><Send className="size-4"/></button></div><p className="mt-2 text-[9px] text-[#62585b]">Enter to send · actions require your click</p></form></div></section></div></main>;
+  return (
+    <main className="min-h-screen">
+      <AppHeader name={store.profile?.name} context="AI Copilot" />
+      <div className="mx-auto max-w-[1320px] px-4 py-8 sm:px-7 lg:px-10">
+        <section className="border-b border-white/[0.08] pb-7">
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[.18em] text-[#807478]">
+                <Bot className="size-3.5 text-[#A81736]" />
+                EduFlow AI Copilot
+              </div>
+              <h1 className="mt-3 font-[family-name:var(--font-display)] text-4xl font-semibold tracking-[-.05em] sm:text-5xl">
+                Ask. Organize. Act.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#9f9195]">
+                Use natural language to understand material or operate EduFlow.
+                State-changing actions are shown for your approval before they
+                run.
+              </p>
+            </div>
+            <div className="border border-white/[0.08] bg-[#0d090a] px-4 py-3 text-xs text-[#9f9195]">
+              <div className="flex items-center gap-2">
+                {user && configured ? (
+                  <WandSparkles className="size-4 text-[#A81736]" />
+                ) : (
+                  <ShieldCheck className="size-4 text-[#A81736]" />
+                )}
+                <span>
+                  {user && configured
+                    ? "Cloud AI + local fallback"
+                    : "Local fallback mode"}
+                </span>
+              </div>
+              <p className="mt-1 text-[10px] text-[#62585b]">
+                Provider:{" "}
+                {user && configured
+                  ? "Gemini when configured"
+                  : "Local Study Assistant"}
+              </p>
+            </div>
+          </div>
+        </section>
+        <section className="grid gap-8 py-8 lg:grid-cols-[.34fr_1fr]">
+          <aside className="space-y-6">
+            <div className="border-y border-white/[0.08] py-5">
+              <p className="text-[9px] uppercase tracking-[.16em] text-[#807478]">
+                Study context
+              </p>
+              <label className="mt-4 block text-xs text-[#B8AAAE]">
+                Subject
+              </label>
+              <div className="relative mt-2">
+                <select
+                  value={subjectId}
+                  onChange={(e) => {
+                    setSubjectId(e.target.value);
+                    setTopicId("");
+                  }}
+                  className="focus-ring min-h-11 w-full appearance-none border border-white/[0.1] bg-[#11090B] px-3 pr-9 text-sm"
+                >
+                  <option value="">General</option>
+                  {store.subjects.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-[#62585b]" />
+              </div>
+              <label className="mt-4 block text-xs text-[#B8AAAE]">Topic</label>
+              <div className="relative mt-2">
+                <select
+                  value={topicId}
+                  disabled={!subjectId}
+                  onChange={(e) => setTopicId(e.target.value)}
+                  className="focus-ring min-h-11 w-full appearance-none border border-white/[0.1] bg-[#11090B] px-3 pr-9 text-sm disabled:opacity-40"
+                >
+                  <option value="">All topics</option>
+                  {topics.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-[#62585b]" />
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-[#62585b]">
+                Current: {contextLabel}
+              </p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-[.16em] text-[#807478]">
+                Try asking
+              </p>
+              <div className="mt-3 space-y-1">
+                {SUGGESTIONS.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => void ask(suggestion)}
+                    className="focus-ring block min-h-10 w-full border-b border-white/[0.06] px-1 text-left text-xs text-[#9f9195] transition hover:text-white"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {topic && subject ? (
+              <div className="border-l border-[#78152A] pl-4">
+                <p className="text-xs font-medium text-[#D8CDD0]">
+                  Context shortcuts
+                </p>
+                <div className="mt-3 flex flex-col gap-2 text-xs">
+                  <Link
+                    href={`/revision/${subject.id}/${topic.id}`}
+                    className="focus-ring inline-flex min-h-9 items-center gap-2 text-[#9f9195] hover:text-white"
+                  >
+                    <BookOpenCheck className="size-3.5" />
+                    Open revision
+                  </Link>
+                  <Link
+                    href={`/subjects/${subject.id}/topics/${topic.id}`}
+                    className="focus-ring inline-flex min-h-9 items-center text-[#9f9195] hover:text-white"
+                  >
+                    Back to topic
+                  </Link>
+                </div>
+              </div>
+            ) : null}
+          </aside>
+          <div className="min-w-0 border border-white/[0.08] bg-[#0b0809]">
+            <div className="border-b border-white/[0.08] px-5 py-4 sm:px-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium">{contextLabel}</p>
+                  <p className="mt-1 text-[10px] text-[#62585b]">
+                    AI can propose actions; you approve them before execution.
+                  </p>
+                </div>
+                {messages.length ? (
+                  <button
+                    onClick={() => {
+                      setMessages([]);
+                      setReplyMeta({});
+                      setActions({});
+                    }}
+                    className="focus-ring inline-flex min-h-9 items-center gap-1.5 px-2 text-[10px] text-[#807478] hover:text-white"
+                  >
+                    <X className="size-3.5" />
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <div className="h-[48dvh] min-h-[340px] overflow-y-auto px-4 py-5 sm:h-[56vh] sm:min-h-[460px] sm:px-7 sm:py-6">
+              {!messages.length ? (
+                <div className="max-w-xl">
+                  <Sparkles className="size-5 text-[#78152A]" />
+                  <h2 className="mt-4 text-xl font-semibold">
+                    One copilot for the entire study workspace.
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-[#807478]">
+                    {intro}
+                  </p>
+                  <div className="mt-6 grid gap-2 text-xs text-[#62585b] sm:grid-cols-2">
+                    <span className="border-t border-white/[0.08] pt-3">
+                      Create goals & notes
+                    </span>
+                    <span className="border-t border-white/[0.08] pt-3">
+                      Plan focus & exams
+                    </span>
+                    <span className="border-t border-white/[0.08] pt-3">
+                      Operate topics
+                    </span>
+                    <span className="border-t border-white/[0.08] pt-3">
+                      Launch verified research
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-7">
+                  {messages.map((message) => (
+                    <article
+                      key={message.id}
+                      className={
+                        message.role === "user"
+                          ? "ml-auto max-w-[94%] sm:max-w-[82%]"
+                          : "max-w-[96%] sm:max-w-[88%]"
+                      }
+                    >
+                      <p className="text-[9px] uppercase tracking-[.15em] text-[#62585b]">
+                        {message.role === "user" ? "You" : "EduFlow AI"}
+                      </p>
+                      <div
+                        className={`mt-2 whitespace-pre-wrap text-sm leading-6 ${message.role === "user" ? "border-l-2 border-[#A81736] pl-4 text-[#E8DEE0]" : "text-[#B8AAAE]"}`}
+                      >
+                        {message.content}
+                      </div>
+                      {message.role === "assistant" && replyMeta[message.id] ? (
+                        <p className="mt-2 text-[9px] uppercase tracking-[.12em] text-[#62585b]">
+                          Source · {replyMeta[message.id]}
+                        </p>
+                      ) : null}
+                      {actions[message.id]?.length ? (
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          {actions[message.id].map((action, index) => (
+                            <button
+                              key={`${action.type}-${index}`}
+                              onClick={() => void runAction(action)}
+                              className="focus-ring flex min-h-11 items-center justify-between gap-3 border border-[#78152A]/55 bg-[#180C10] px-3 text-left text-xs text-[#D8CDD0] hover:border-[#A81736]"
+                            >
+                              <span>{actionLabel(action)}</span>
+                              {action.type === "research" ||
+                              action.type === "navigate" ? (
+                                <ExternalLink className="size-3.5 shrink-0" />
+                              ) : (
+                                <Play className="size-3.5 shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                  {busy ? (
+                    <div className="text-xs text-[#807478]">
+                      EduFlow AI is working with your study context…
+                    </div>
+                  ) : null}
+                </div>
+              )}
+              <div ref={endRef} />
+            </div>
+            {status ? (
+              <div className="border-t border-white/[0.08] bg-[#11090B] px-5 py-3 text-xs text-[#B8AAAE]">
+                {status}
+              </div>
+            ) : null}
+            <form
+              onSubmit={submit}
+              className="border-t border-white/[0.08] p-4 sm:p-5"
+            >
+              <div className="flex gap-2">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (input.trim()) void ask(input);
+                    }
+                  }}
+                  placeholder="Ask a question or tell EduFlow what to do…"
+                  rows={2}
+                  className="focus-ring min-h-14 flex-1 resize-none border border-white/[0.1] bg-[#11090B] px-4 py-3 text-sm placeholder:text-[#62585b]"
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || busy}
+                  className="focus-ring grid min-h-14 min-w-14 place-items-center bg-[#A81736] text-white disabled:opacity-40"
+                  aria-label="Send"
+                >
+                  <Send className="size-4" />
+                </button>
+              </div>
+              <p className="mt-2 text-[9px] text-[#62585b]">
+                Enter to send · actions require your click
+              </p>
+            </form>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
 }
