@@ -12,11 +12,19 @@ export function mongoConfigured() {
 }
 
 async function client() {
-  if (!uri) throw new Error("MONGODB_URI is not configured.");
+  if (!uri) {
+    throw new Error("MONGODB_URI is not configured.");
+  }
+
   if (!global.__eduflowMongo) {
-    const instance = new MongoClient(uri);
+    const instance = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+    });
+
     global.__eduflowMongo = instance.connect();
   }
+
   return global.__eduflowMongo;
 }
 

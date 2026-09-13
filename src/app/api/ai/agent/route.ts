@@ -18,14 +18,12 @@ function stateSummary(state: EduFlowState | undefined) {
       bookmarked: topic.bookmarked,
     })),
   }));
-  const recentTests = state.testAttempts
-    .slice(-10)
-    .map((test) => ({
-      subject: test.subjectName,
-      topic: test.topicName,
-      score: test.score,
-      date: test.date,
-    }));
+  const recentTests = state.testAttempts.slice(-10).map((test) => ({
+    subject: test.subjectName,
+    topic: test.topicName,
+    score: test.score,
+    date: test.date,
+  }));
   const exams = state.exams.map((exam) => ({
     name: exam.name,
     date: exam.date,
@@ -38,14 +36,12 @@ function stateSummary(state: EduFlowState | undefined) {
     goals: state.goals,
     exams,
     planner: state.planner,
-    recentNotes: state.notes
-      .slice(-8)
-      .map((note) => ({
-        title: note.title,
-        body: note.body.slice(0, 500),
-        subjectId: note.subjectId,
-        topicId: note.topicId,
-      })),
+    recentNotes: state.notes.slice(-8).map((note) => ({
+      title: note.title,
+      body: note.body.slice(0, 500),
+      subjectId: note.subjectId,
+      topicId: note.topicId,
+    })),
   });
 }
 
@@ -84,8 +80,13 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(result);
   } catch (cause) {
+    console.error("EduFlow AI route failed:", cause);
+
     return NextResponse.json(
-      { error: cause instanceof Error ? cause.message : "AI request failed." },
+      {
+        error: cause instanceof Error ? cause.message : "AI request failed.",
+        fallback: "local",
+      },
       { status: 500 },
     );
   }
