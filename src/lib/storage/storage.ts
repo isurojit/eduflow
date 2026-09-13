@@ -1,7 +1,17 @@
 import { z } from "zod";
 import type { EduFlowState } from "@/types/domain";
 
-const STORAGE_KEY = "eduflow:v1";
+const LEGACY_STORAGE_KEY = "eduflow:v1";
+
+let activeUserId: string | null = null;
+
+export function setStorageUser(uid: string | null) {
+  activeUserId = uid;
+}
+
+function storageKey() {
+  return activeUserId ? `eduflow:user:${activeUserId}` : LEGACY_STORAGE_KEY;
+}
 
 const topicSchema = z.object({
   id: z.string().min(1),
@@ -111,7 +121,6 @@ const examSchema = z.object({
   createdAt: z.string(),
 });
 
-
 const plannerSchema = z.object({
   date: z.string(),
   availableMinutes: z.number().int().min(0).max(720),
@@ -122,8 +131,6 @@ const plannerSchema = z.object({
   completedTaskIds: z.array(z.string()),
   updatedAt: z.string(),
 });
-
-
 
 const flashcardProgressSchema = z.object({
   topicId: z.string().min(1),
@@ -149,9 +156,6 @@ const activeFocusSchema = z.object({
   updatedAt: z.string(),
 });
 
-
-
-
 const noteSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -161,7 +165,6 @@ const noteSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
-
 
 const notificationSchema = z.object({
   id: z.string().min(1),
@@ -181,8 +184,18 @@ const notificationPreferencesSchema = z.object({
   updatedAt: z.string(),
 });
 
-const achievementIdSchema = z.enum(["first-test", "seven-day-streak", "ten-topics", "ninety-percent", "perfect-ten", "thirty-day-streak"]);
-const achievementUnlockSchema = z.object({ id: achievementIdSchema, unlockedAt: z.string() });
+const achievementIdSchema = z.enum([
+  "first-test",
+  "seven-day-streak",
+  "ten-topics",
+  "ninety-percent",
+  "perfect-ten",
+  "thirty-day-streak",
+]);
+const achievementUnlockSchema = z.object({
+  id: achievementIdSchema,
+  unlockedAt: z.string(),
+});
 
 const v9Schema = z.object({
   version: z.literal(9),
@@ -298,19 +311,34 @@ const v3Schema = z.object({
 });
 
 const legacyTestAttemptSchema = z.object({
-  id: z.string().min(1), studentId: z.string().min(1), date: z.string(),
-  subjectId: z.string().min(1), subjectName: z.string().min(1),
-  topicId: z.string().min(1), topicName: z.string().min(1),
-  score: z.number().nonnegative(), totalMarks: z.number().positive(), percentage: z.number().min(0).max(100),
-  correctAnswers: z.number().nonnegative(), wrongAnswers: z.number().nonnegative(), unanswered: z.number().nonnegative(),
-  difficulty: z.enum(["easy", "medium", "hard"]), durationSeconds: z.number().nonnegative(),
+  id: z.string().min(1),
+  studentId: z.string().min(1),
+  date: z.string(),
+  subjectId: z.string().min(1),
+  subjectName: z.string().min(1),
+  topicId: z.string().min(1),
+  topicName: z.string().min(1),
+  score: z.number().nonnegative(),
+  totalMarks: z.number().positive(),
+  percentage: z.number().min(0).max(100),
+  correctAnswers: z.number().nonnegative(),
+  wrongAnswers: z.number().nonnegative(),
+  unanswered: z.number().nonnegative(),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  durationSeconds: z.number().nonnegative(),
 });
 
 const v2Schema = z.object({
   version: z.literal(2),
-  profile: profileSchema.nullable(), subjects: z.array(subjectSchema), goals: z.array(goalSchema),
-  dailyActivity: z.record(dailyActivitySchema), testAttempts: z.array(legacyTestAttemptSchema),
-  studySessions: z.array(studySessionSchema), exams: z.array(examSchema), createdAt: z.string(), updatedAt: z.string(),
+  profile: profileSchema.nullable(),
+  subjects: z.array(subjectSchema),
+  goals: z.array(goalSchema),
+  dailyActivity: z.record(dailyActivitySchema),
+  testAttempts: z.array(legacyTestAttemptSchema),
+  studySessions: z.array(studySessionSchema),
+  exams: z.array(examSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
 });
 
 const v1Schema = z.object({
@@ -334,13 +362,22 @@ export const createEmptyState = (): EduFlowState => {
     testAttempts: [],
     studySessions: [],
     exams: [],
-    planner: { date: new Date().toISOString().slice(0, 10), availableMinutes: 120, completedTaskIds: [], updatedAt: now },
+    planner: {
+      date: new Date().toISOString().slice(0, 10),
+      availableMinutes: 120,
+      completedTaskIds: [],
+      updatedAt: now,
+    },
     activeFocus: null,
     flashcardProgress: {},
     achievements: {},
     notes: [],
     notifications: [],
-    notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: now },
+    notificationPreferences: {
+      inAppEnabled: true,
+      browserEnabled: false,
+      updatedAt: now,
+    },
     createdAt: now,
     updatedAt: now,
   };
@@ -355,37 +392,117 @@ function parseAndMigrate(raw: string): EduFlowState | null {
     const v8 = v8Schema.safeParse(candidate);
     if (v8.success) {
       const now = new Date().toISOString();
-      return { ...v8.data, version: 9, notifications: [], notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: now }, updatedAt: now };
+      return {
+        ...v8.data,
+        version: 9,
+        notifications: [],
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: now,
+        },
+        updatedAt: now,
+      };
     }
 
     const v7 = v7Schema.safeParse(candidate);
     if (v7.success) {
       const now = new Date().toISOString();
-      return { ...v7.data, version: 9, notes: [], notifications: [], notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: now }, updatedAt: now };
+      return {
+        ...v7.data,
+        version: 9,
+        notes: [],
+        notifications: [],
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: now,
+        },
+        updatedAt: now,
+      };
     }
 
     const v6 = v6Schema.safeParse(candidate);
     if (v6.success) {
       const now = new Date().toISOString();
-      return { ...v6.data, version: 9, notes: [], notifications: [], notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: now }, achievements: {}, updatedAt: now };
+      return {
+        ...v6.data,
+        version: 9,
+        notes: [],
+        notifications: [],
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: now,
+        },
+        achievements: {},
+        updatedAt: now,
+      };
     }
 
     const v5 = v5Schema.safeParse(candidate);
     if (v5.success) {
       const now = new Date().toISOString();
-      return { ...v5.data, version: 9, notes: [], notifications: [], notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: now }, flashcardProgress: {}, achievements: {}, updatedAt: now };
+      return {
+        ...v5.data,
+        version: 9,
+        notes: [],
+        notifications: [],
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: now,
+        },
+        flashcardProgress: {},
+        achievements: {},
+        updatedAt: now,
+      };
     }
 
     const v4 = v4Schema.safeParse(candidate);
     if (v4.success) {
       const now = new Date().toISOString();
-      return { ...v4.data, version: 9, notes: [], notifications: [], notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: now }, activeFocus: null, flashcardProgress: {}, achievements: {}, updatedAt: now };
+      return {
+        ...v4.data,
+        version: 9,
+        notes: [],
+        notifications: [],
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: now,
+        },
+        activeFocus: null,
+        flashcardProgress: {},
+        achievements: {},
+        updatedAt: now,
+      };
     }
 
     const v3 = v3Schema.safeParse(candidate);
     if (v3.success) {
       const now = new Date().toISOString();
-      return { ...v3.data, version: 9, notes: [], notifications: [], notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: now }, activeFocus: null, flashcardProgress: {}, achievements: {}, planner: { date: now.slice(0, 10), availableMinutes: 120, completedTaskIds: [], updatedAt: now }, updatedAt: now };
+      return {
+        ...v3.data,
+        version: 9,
+        notes: [],
+        notifications: [],
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: now,
+        },
+        activeFocus: null,
+        flashcardProgress: {},
+        achievements: {},
+        planner: {
+          date: now.slice(0, 10),
+          availableMinutes: 120,
+          completedTaskIds: [],
+          updatedAt: now,
+        },
+        updatedAt: now,
+      };
     }
 
     const v2 = v2Schema.safeParse(candidate);
@@ -395,12 +512,21 @@ function parseAndMigrate(raw: string): EduFlowState | null {
         version: 9,
         notes: [],
         notifications: [],
-        notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: new Date().toISOString() },
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: new Date().toISOString(),
+        },
         activeFocus: null,
         flashcardProgress: {},
         achievements: {},
         testAttempts: [],
-        planner: { date: new Date().toISOString().slice(0, 10), availableMinutes: 120, completedTaskIds: [], updatedAt: new Date().toISOString() },
+        planner: {
+          date: new Date().toISOString().slice(0, 10),
+          availableMinutes: 120,
+          completedTaskIds: [],
+          updatedAt: new Date().toISOString(),
+        },
         updatedAt: new Date().toISOString(),
       };
     }
@@ -412,14 +538,23 @@ function parseAndMigrate(raw: string): EduFlowState | null {
         version: 9,
         notes: [],
         notifications: [],
-        notificationPreferences: { inAppEnabled: true, browserEnabled: false, updatedAt: new Date().toISOString() },
+        notificationPreferences: {
+          inAppEnabled: true,
+          browserEnabled: false,
+          updatedAt: new Date().toISOString(),
+        },
         activeFocus: null,
         flashcardProgress: {},
         achievements: {},
         testAttempts: [],
         studySessions: [],
         exams: [],
-        planner: { date: new Date().toISOString().slice(0, 10), availableMinutes: 120, completedTaskIds: [], updatedAt: new Date().toISOString() },
+        planner: {
+          date: new Date().toISOString().slice(0, 10),
+          availableMinutes: 120,
+          completedTaskIds: [],
+          updatedAt: new Date().toISOString(),
+        },
         updatedAt: new Date().toISOString(),
       };
     }
@@ -437,21 +572,39 @@ export interface StorageAdapter {
 
 class BrowserStorageAdapter implements StorageAdapter {
   load(): EduFlowState {
-    if (typeof window === "undefined") return createEmptyState();
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createEmptyState();
-    const state = parseAndMigrate(raw) ?? createEmptyState();
-    return state;
+    if (typeof window === "undefined") {
+      return createEmptyState();
+    }
+
+    const raw = window.localStorage.getItem(storageKey());
+
+    if (!raw) {
+      return createEmptyState();
+    }
+
+    return parseAndMigrate(raw) ?? createEmptyState();
   }
 
   save(state: EduFlowState) {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, updatedAt: new Date().toISOString() }));
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      storageKey(),
+      JSON.stringify({
+        ...state,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
   }
 
   clear() {
-    if (typeof window === "undefined") return;
-    window.localStorage.removeItem(STORAGE_KEY);
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.removeItem(storageKey());
   }
 }
 
