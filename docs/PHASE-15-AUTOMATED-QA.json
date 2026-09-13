@@ -1,0 +1,128 @@
+{
+  "generatedAt": "2026-09-11T03:35:11.800Z",
+  "passed": 30,
+  "failed": 0,
+  "total": 30,
+  "results": [
+    {
+      "name": "Fresh state has no profile (landing gate condition)",
+      "status": "PASS"
+    },
+    {
+      "name": "School onboarding builds a completed profile and selected subjects",
+      "status": "PASS"
+    },
+    {
+      "name": "College onboarding stores college-specific fields",
+      "status": "PASS"
+    },
+    {
+      "name": "Persisted profile hydrates back into the actual store (refresh survival)",
+      "status": "PASS"
+    },
+    {
+      "name": "All 40 starter topics have exactly 10 supported questions with four valid options",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom subject does not receive fabricated starter topics/questions",
+      "status": "PASS"
+    },
+    {
+      "name": "Actual store mutation completes a topic, updates activity and persists it",
+      "status": "PASS"
+    },
+    {
+      "name": "Test evaluator returns exact score, wrong/unanswered counts and mistake explanations",
+      "status": "PASS"
+    },
+    {
+      "name": "Store rejects non-10-question attempts and persists valid attempts",
+      "status": "PASS"
+    },
+    {
+      "name": "Performance analytics derive average/high/low and subject health from saved results",
+      "status": "PASS"
+    },
+    {
+      "name": "Performance trend changes when a new saved result is added",
+      "status": "PASS"
+    },
+    {
+      "name": "Repeated low topic attempts are detected as weak and alter recommendation",
+      "status": "PASS"
+    },
+    {
+      "name": "Weekly comparison and improvement use real period data and handle missing previous data",
+      "status": "PASS"
+    },
+    {
+      "name": "Planner prioritizes a weak topic and respects the available-minute budget",
+      "status": "PASS"
+    },
+    {
+      "name": "Upcoming exam raises related-subject priority",
+      "status": "PASS"
+    },
+    {
+      "name": "Planner activation persists exact task/topic handoff",
+      "status": "PASS"
+    },
+    {
+      "name": "Timestamp timer survives throttling by deriving elapsed time from runStartedAt",
+      "status": "PASS"
+    },
+    {
+      "name": "Completed focus creates actual study session/activity and planner completion",
+      "status": "PASS"
+    },
+    {
+      "name": "Meaningful activity drives current/best streak; opening alone does not",
+      "status": "PASS"
+    },
+    {
+      "name": "Notes create/update/delete through actual store and persist",
+      "status": "PASS"
+    },
+    {
+      "name": "Bookmark persists without changing completion progress",
+      "status": "PASS"
+    },
+    {
+      "name": "Automatically measurable goals derive progress from real activity/tests",
+      "status": "PASS"
+    },
+    {
+      "name": "Required achievements unlock once from actual history with timestamps",
+      "status": "PASS"
+    },
+    {
+      "name": "Calendar derives studied/test/topic/goal state and avoids pre-profile missed days",
+      "status": "PASS"
+    },
+    {
+      "name": "Exam countdown finds nearest future exam dynamically",
+      "status": "PASS"
+    },
+    {
+      "name": "Revision and flashcards are available for every supported starter topic",
+      "status": "PASS"
+    },
+    {
+      "name": "Global search finds actual subject/topic/bookmark/note/revision content",
+      "status": "PASS"
+    },
+    {
+      "name": "Notification engine deduplicates and emits exam milestone/goal/study reminders from real data",
+      "status": "PASS"
+    },
+    {
+      "name": "Local Study Assistant grounds supported content and test mistakes without inventing unsupported content",
+      "status": "PASS"
+    },
+    {
+      "name": "Static acceptance audit: routes, responsive breakpoints, and no obvious dead controls",
+      "status": "PASS"
+    }
+  ]
+}

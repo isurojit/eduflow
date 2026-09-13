@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #090708;
+  --elevated: #11090b;
+  --surface: #180c10;
+  --burgundy: #4a0d1a;
+  --deep-crimson: #78152a;
+  --crimson: #a81736;
+  --accent: #c52845;
+  --text: #f7f2f3;
+  --secondary: #b8aaae;
+  --muted: #807478;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 78% 8%, rgba(120,21,42,.13), transparent 30rem),
+    linear-gradient(180deg, #0d090a 0%, var(--bg) 42%);
+}
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+::selection { background: #78152a; color: #fff; }
+
+.noise::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  opacity: .025;
+  pointer-events: none;
+  z-index: 50;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+
+.focus-ring:focus-visible { outline: 2px solid #c52845; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Phase 14 responsive refinement */
+html { overflow-x: hidden; }
+body { min-width: 320px; overflow-x: hidden; }
+img, svg, video, canvas { max-width: 100%; }
+textarea { font: inherit; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+
+.safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.mobile-page-bottom { padding-bottom: calc(5.25rem + env(safe-area-inset-bottom)); }
+
+@media (max-width: 767px) {
+  body { background-attachment: scroll; }
+  h1 { text-wrap: balance; }
+  p { overflow-wrap: anywhere; }
+  input, select, textarea { font-size: 16px; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .focus-ring { min-height: 44px; }
+}
