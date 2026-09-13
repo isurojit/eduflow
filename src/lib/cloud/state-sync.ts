@@ -2,13 +2,12 @@
 
 import type { EduFlowState } from "@/types/domain";
 import { cloudFetch } from "@/lib/cloud/api-client";
-import { createEmptyState, storage } from "@/lib/storage/storage";
+import { storage } from "@/lib/storage/storage";
 import { useEduFlowStore } from "@/store/use-eduflow-store";
-
-const AUTH_CACHE_KEY = "eduflow:auth-uid";
 
 export function snapshotEduFlowState(): EduFlowState {
   const store = useEduFlowStore.getState();
+
   return {
     version: store.version,
     profile: store.profile,
@@ -30,39 +29,112 @@ export function snapshotEduFlowState(): EduFlowState {
   };
 }
 
+function timestamp(value?: string) {
+  if (!value) return 0;
+
+  const parsed = new Date(value).getTime();
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export async function initialCloudSync(uid: string) {
+  if (!uid) {
+    throw new Error("Cloud sync requires an authenticated user.");
+  }
+
   const local = snapshotEduFlowState();
-  const response = await cloudFetch("/api/cloud/state", { method: "GET" });
+
+  const response = await cloudFetch("/api/cloud/state", {
+    method: "GET",
+    cache: "no-store",
+  });
+
   if (response.status === 404) {
-    const previousUid = typeof window !== "undefined" ? window.localStorage.getItem(AUTH_CACHE_KEY) : null;
-    if (previousUid && previousUid !== uid) {
-      const empty = createEmptyState();
-      storage.save(empty);
-      useEduFlowStore.setState({ ...empty, hydrated: true });
-      if (typeof window !== "undefined") window.localStorage.setItem(AUTH_CACHE_KEY, uid);
-      await cloudFetch("/api/cloud/state", { method: "PUT", body: JSON.stringify({ state: empty }) });
-      return "new-account" as const;
+    const upload = await cloudFetch("/api/cloud/state", {
+      method: "PUT",
+      body: JSON.stringify({
+        state: local,
+      }),
+    });
+
+    if (!upload.ok) {
+      const payload = await upload.json().catch(() => null);
+
+      throw new Error(
+        payload?.error || "Initial cloud state could not be saved.",
+      );
     }
-    if (typeof window !== "undefined") window.localStorage.setItem(AUTH_CACHE_KEY, uid);
-    await cloudFetch("/api/cloud/state", { method: "PUT", body: JSON.stringify({ state: local }) });
+
     return "uploaded" as const;
   }
-  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "Cloud sync unavailable.");
-  const payload = await response.json() as { state: EduFlowState };
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+
+    throw new Error(payload?.error || "Cloud sync unavailable.");
+  }
+
+  const payload = (await response.json()) as {
+    state?: EduFlowState;
+  };
+
   const remote = payload.state;
-  if (remote?.updatedAt && new Date(remote.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
+
+  if (!remote) {
+    throw new Error("Cloud state response did not contain state.");
+  }
+
+  const remoteUpdated = timestamp(remote.updatedAt);
+  const localUpdated = timestamp(local.updatedAt);
+
+  if (remoteUpdated > localUpdated) {
     storage.save(remote);
-    if (typeof window !== "undefined") window.localStorage.setItem(AUTH_CACHE_KEY, uid);
-    useEduFlowStore.setState({ ...remote, hydrated: true });
+
+    useEduFlowStore.setState({
+      ...remote,
+      hydrated: true,
+    });
+
     return "downloaded" as const;
   }
-  if (typeof window !== "undefined") window.localStorage.setItem(AUTH_CACHE_KEY, uid);
-  await cloudFetch("/api/cloud/state", { method: "PUT", body: JSON.stringify({ state: local }) });
-  return "uploaded" as const;
+
+  if (localUpdated > remoteUpdated) {
+    const upload = await cloudFetch("/api/cloud/state", {
+      method: "PUT",
+      body: JSON.stringify({
+        state: local,
+      }),
+    });
+
+    if (!upload.ok) {
+      const uploadPayload = await upload.json().catch(() => null);
+
+      throw new Error(
+        uploadPayload?.error || "Cloud state could not be updated.",
+      );
+    }
+
+    return "uploaded" as const;
+  }
+
+  return "unchanged" as const;
 }
 
 export async function pushCloudState() {
   const state = snapshotEduFlowState();
-  const response = await cloudFetch("/api/cloud/state", { method: "PUT", body: JSON.stringify({ state }) });
-  if (!response.ok) throw new Error("Cloud state could not be saved.");
+
+  const response = await cloudFetch("/api/cloud/state", {
+    method: "PUT",
+    body: JSON.stringify({
+      state,
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+
+    throw new Error(payload?.error || "Cloud state could not be saved.");
+  }
+
+  return true;
 }
