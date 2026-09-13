@@ -1,107 +1,61 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/server/auth";
-import { mongoDb } from "@/lib/server/mongo";
+import { geminiAgent, geminiConfigured } from "@/lib/server/gemini";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     const user = await requireUser(request);
 
-    const db = await mongoDb();
-
-    const doc = await db.collection("user_states").findOne({ uid: user.uid });
-
-    if (!doc?.state) {
+    if (!user?.uid) {
       return NextResponse.json(
-        {
-          error: "No cloud state yet.",
-        },
-        { status: 404 },
+        { error: "Authentication required." },
+        { status: 401 },
       );
     }
 
-    return NextResponse.json({
-      state: doc.state,
-      updatedAt: doc.updatedAt,
-    });
-  } catch (cause) {
-    console.error("Cloud state GET failed:", cause);
-
-    return NextResponse.json(
-      {
-        error:
-          cause instanceof Error ? cause.message : "Cloud state unavailable.",
-      },
-      { status: 500 },
-    );
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const user = await requireUser(request);
-
-    const body = await request.json();
-    const state = body?.state;
-
-    if (!state || state.version !== 9 || typeof state.updatedAt !== "string") {
+    if (!geminiConfigured()) {
       return NextResponse.json(
         {
-          error: "Invalid EduFlow state payload.",
+          error: "Gemini is not configured.",
+          fallback: "local",
         },
+        { status: 503 },
+      );
+    }
+
+    const body = await request.json();
+
+    const message = String(body?.message ?? "").trim();
+
+    if (!message) {
+      return NextResponse.json(
+        { error: "Message is required." },
         { status: 400 },
       );
     }
 
-    const db = await mongoDb();
+    const context =
+      typeof body?.context === "string"
+        ? body.context.slice(0, 4000)
+        : undefined;
 
-    const now = new Date().toISOString();
-
-    await Promise.all([
-      db.collection("user_states").updateOne(
-        { uid: user.uid },
-        {
-          $set: {
-            uid: user.uid,
-            state,
-            updatedAt: now,
-          },
-        },
-        { upsert: true },
-      ),
-
-      db.collection("users").updateOne(
-        { uid: user.uid },
-        {
-          $set: {
-            uid: user.uid,
-            email: user.email ?? null,
-            displayName: user.name ?? state.profile?.name ?? null,
-            profile: state.profile ?? null,
-            lastSeenAt: now,
-          },
-          $setOnInsert: {
-            createdAt: now,
-          },
-        },
-        { upsert: true },
-      ),
-    ]);
-
-    return NextResponse.json({
-      ok: true,
-      updatedAt: now,
+    const result = await geminiAgent({
+      message,
+      stateSummary: "No cloud study state supplied.",
+      context,
     });
+
+    return NextResponse.json(result);
   } catch (cause) {
-    console.error("Cloud state PUT failed:", cause);
+    console.error("AI agent route failed:", cause);
 
     return NextResponse.json(
       {
-        error:
-          cause instanceof Error
-            ? cause.message
-            : "Cloud state could not be saved.",
+        error: cause instanceof Error ? cause.message : "AI request failed.",
+        fallback: "local",
       },
       { status: 500 },
     );
