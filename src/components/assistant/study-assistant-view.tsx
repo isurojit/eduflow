@@ -222,7 +222,63 @@ export function StudyAssistantView() {
             method: "POST",
             body: JSON.stringify({
               message: clean,
-              context: `${contextLabel}${attemptId ? ` · test attempt ${attemptId}` : ""}`,
+
+              context: `${contextLabel}${
+                attemptId ? ` · test attempt ${attemptId}` : ""
+              }`,
+
+              state: {
+                profile: store.profile
+                  ? {
+                      name: store.profile.name,
+                      educationLevel: store.profile.educationLevel,
+                      classGrade: store.profile.classGrade,
+                      board: store.profile.board,
+                      collegeName: store.profile.collegeName,
+                      course: store.profile.course,
+                      year: store.profile.year,
+                      semester: store.profile.semester,
+                      branch: store.profile.branch,
+                    }
+                  : null,
+
+                subjects: store.subjects.map((subject) => ({
+                  id: subject.id,
+                  name: subject.name,
+                  topics: subject.topics.map((topic) => ({
+                    id: topic.id,
+                    name: topic.name,
+                    completed: topic.completed,
+                    bookmarked: topic.bookmarked,
+                  })),
+                })),
+
+                goals: store.goals,
+
+                exams: store.exams,
+
+                planner: store.planner,
+
+                recentTests: store.testAttempts.slice(-8).map((attempt) => ({
+                  subjectName: attempt.subjectName,
+                  topicName: attempt.topicName,
+                  score: attempt.score,
+                  percentage: attempt.percentage,
+                  date: attempt.date,
+                  mistakes: attempt.mistakes.slice(0, 5).map((mistake) => ({
+                    question: mistake.question,
+                    correctAnswer: mistake.correctAnswer,
+                    explanation: mistake.explanation,
+                  })),
+                })),
+
+                recentNotes: store.notes.slice(-6).map((note) => ({
+                  title: note.title,
+                  body: note.body.slice(0, 500),
+                  subjectId: note.subjectId,
+                  topicId: note.topicId,
+                })),
+              },
             }),
           });
 

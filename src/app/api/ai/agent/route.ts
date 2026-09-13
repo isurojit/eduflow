@@ -5,13 +5,27 @@ import { geminiAgent, geminiConfigured } from "@/lib/server/gemini";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function buildStateSummary(state: unknown) {
+  if (!state || typeof state !== "object") {
+    return "No student state supplied.";
+  }
+
+  try {
+    return JSON.stringify(state).slice(0, 14000);
+  } catch {
+    return "Student state could not be serialized.";
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const user = await requireUser(request);
 
     if (!user?.uid) {
       return NextResponse.json(
-        { error: "Authentication required." },
+        {
+          error: "Authentication required.",
+        },
         { status: 401 },
       );
     }
@@ -32,7 +46,9 @@ export async function POST(request: Request) {
 
     if (!message) {
       return NextResponse.json(
-        { error: "Message is required." },
+        {
+          error: "Message is required.",
+        },
         { status: 400 },
       );
     }
@@ -42,9 +58,11 @@ export async function POST(request: Request) {
         ? body.context.slice(0, 4000)
         : undefined;
 
+    const stateSummary = buildStateSummary(body?.state);
+
     const result = await geminiAgent({
       message,
-      stateSummary: "No cloud study state supplied.",
+      stateSummary,
       context,
     });
 
